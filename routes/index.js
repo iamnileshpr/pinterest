@@ -1,48 +1,66 @@
 var express = require('express');
-const passport = require('passport');
 var router = express.Router();
-const userModel = require("./users")
-const localStrategy = require("passport - local")
-passport.authenticate(new localStrategy(userModel.authenticate()))
+const passport = require('passport');
+const User = require("./users");
+const LocalStrategy = require("passport-local").Strategy;
 
-/* GET home page. */
-router.get('/', function(req, res, next) {
+// Passport setup
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+// Home
+router.get('/', function(req, res) {
     res.render('index', { title: 'Express' });
 });
 
-router.get("/profile", isLoggedIn, function(req, res, next) {
-    res.send("/profile")
-})
+// Profile route
+router.get("/profile", isLoggedIn, function(req, res) {
+    res.send("/profile");
+});
 
+// Register
 router.post("/register", function(req, res) {
-    const { username, email, fullName } = req.body;
-    const userData = new userModel({ username, email, fullName })
+    const { username, email, fullName, password } = req.body;
 
-    usermodel.register(userData, req.body.password)
-        .then(function() {
-            passport.authenticate("local")(req, res, function() {
-                res.redirect("profile")
-            })
+    const userData = new User({
+        username,
+        email,
+        FullName: fullName,
+    });
+
+    User.register(userData, password)
+        .then(() => {
+            passport.authenticate("local")(req, res, () => {
+                res.redirect("/profile");
+            });
         })
-})
+        .catch(err => {
+            console.log(err);
+            res.redirect("/");
+        });
+});
 
-router.post("/login", passport.authenticate("local", {
-    successRedirect: "/profile",
-    failureRedirect: "/"
-}), function(req, res) {
-
-})
-
-router.get("/logout", function(req, res) {
-    req.logout(function(err) {
-        if (err) { return next(err); }
-        res.redirect('/');
+// Login
+router.post("/login",
+    passport.authenticate("local", {
+        successRedirect: "/profile",
+        failureRedirect: "/"
     })
-})
+);
 
+// Logout
+router.get("/logout", function(req, res, next) {
+    req.logout(function(err) {
+        if (err) return next(err);
+        res.redirect('/');
+    });
+});
+
+// Auth middleware
 function isLoggedIn(req, res, next) {
     if (req.isAuthenticated()) return next();
-    res.redirect("/")
+    res.redirect("/");
 }
 
 module.exports = router;
